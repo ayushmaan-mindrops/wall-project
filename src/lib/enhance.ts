@@ -6,13 +6,14 @@ export interface Enhanced {
   mode: 'wall' | 'full';
 }
 
-export async function enhanceAvailable(): Promise<boolean> {
+export interface EnhanceStatus { available: boolean; signedIn: boolean; limit: number; remaining: number }
+
+export async function enhanceStatus(): Promise<EnhanceStatus> {
   try {
     const r = await fetch('/api/enhance/status');
-    return r.ok && (await r.json()).available === true;
-  } catch {
-    return false;
-  }
+    if (r.ok) return await r.json();
+  } catch { /* fall through */ }
+  return { available: false, signedIn: false, limit: 0, remaining: 0 };
 }
 
 function loadImage(src: string) {
@@ -24,7 +25,7 @@ function loadImage(src: string) {
   });
 }
 
-export interface AiImage { image: string; provider: string; model: string }
+export interface AiImage { image: string; provider: string; model: string; remaining?: number }
 
 /** Send the exact render to the server for a photoreal pass. */
 export async function requestEnhancement(opts: {

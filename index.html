@@ -1,19 +1,35 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-IN">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#1F2A30" />
-    <title>Marble Wall Visualizer</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Hanken+Grotesk:wght@400;500;600&display=swap"
-      rel="stylesheet"
-    />
+    <!--page-meta-->
+    <title>Mindrops | Natural marble slabs you can see on your own wall</title>
+    <meta name="description" content="Browse natural marble from Italy and Spain, then try any slab on a photo of your own wall with our free visualizer. Quotes within one working day." />
+    <meta name="robots" content="index, follow" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Mindrops" />
+    <meta property="og:title" content="Mindrops | Natural marble slabs you can see on your own wall" />
+    <meta property="og:description" content="Browse natural marble from Italy and Spain, then try any slab on a photo of your own wall with our free visualizer." />
+    <meta property="og:image" content="/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <!--/page-meta-->
+    <link rel="preload" href="/fonts/bodoni-moda.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/hanken-grotesk.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/favicon.ico" sizes="32x32" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
   </head>
   <body>
     <div id="root"></div>
+    <noscript>
+      <p style="font-family: system-ui, sans-serif; padding: 2rem; max-width: 40rem;">
+        Mindrops sells natural marble slabs from Italy and Spain. Our wall visualizer needs JavaScript;
+        you can still browse the collection at /collection or call the showroom.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

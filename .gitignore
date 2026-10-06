@@ -4,3 +4,6 @@ dist
 .env.local
 *.log
 .playwright-cli
+data/
+dist-server
+dist-ssr

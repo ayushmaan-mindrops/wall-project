@@ -172,7 +172,7 @@ export function wallColor(photo: ImageData, mask: Uint8Array): WallColor | null 
     return [px[i * 4] / sum - 1 / 3, px[i * 4 + 1] / sum - 1 / 3];
   };
   if (wLen < 0.03) {
-    return { hasHue: false, test: (i) => { const [vr, vg] = chroma(i); return Math.hypot(vr - wr, vg - wg) < 0.025; } };
+    return { hasHue: false, test: (i) => { const [vr, vg] = chroma(i); return Math.hypot(vr - wr, vg - wg) < 0.03; } };
   }
   const cosMax = Math.cos((15 * Math.PI) / 180);
   return {
@@ -188,31 +188,47 @@ export function wallColor(photo: ImageData, mask: Uint8Array): WallColor | null 
 }
 
 function growIntoShadowedWall(photo: ImageData, out: Uint8Array, blocked: Uint8Array | null, steps: number) {
-  const W = photo.width, H = photo.height;
+  const { width: W, height: H, data: px } = photo;
   const model = wallColor(photo, out);
-  if (!model?.hasHue) return; // a near-grey wall has no hue to follow
-  const isWall = model.test;  let frontier: number[] = [];
+  if (!model) return;
+  // Edge-aware: only spread across small colour steps between neighbours, so
+  // growth flows over smooth wall (including into shadow) up to an object's
+  // outline and stops at real edges such as a curtain, a ceiling line or wood.
+  const step = (i: number, j: number) => Math.max(
+    Math.abs(px[i * 4] - px[j * 4]), Math.abs(px[i * 4 + 1] - px[j * 4 + 1]), Math.abs(px[i * 4 + 2] - px[j * 4 + 2]),
+  );
+  // Fill inward only: into dents in the wall's outline (around a plant, behind
+  // furniture), never past its outer silhouette into a ceiling or side wall.
+  const minX = new Int32Array(H).fill(W), maxX = new Int32Array(H).fill(-1);
+  const minY = new Int32Array(W).fill(H), maxY = new Int32Array(W).fill(-1);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    if (!out[y * W + x]) continue;
+    if (x < minX[y]) minX[y] = x; if (x > maxX[y]) maxX[y] = x;
+    if (y < minY[x]) minY[x] = y; if (y > maxY[x]) maxY[x] = y;
+  }
+  const inside = (j: number) => {
+    const x = j % W, y = (j / W) | 0;
+    return x >= minX[y] && x <= maxX[y] && y >= minY[x] && y <= maxY[x];
+  };
+  const accept = (i: number, j: number) => !out[j] && !(blocked && blocked[j]) && inside(j) && step(i, j) <= 8 && model.test(j);
+
+  let frontier: number[] = [];
   for (let y = 1; y < H - 1; y++) {
     for (let x = 1; x < W - 1; x++) {
       const i = y * W + x;
-      if (!out[i] && (out[i - 1] || out[i + 1] || out[i - W] || out[i + W])) frontier.push(i);
+      if (out[i] && (!out[i - 1] || !out[i + 1] || !out[i - W] || !out[i + W])) frontier.push(i);
     }
   }
   for (let s = 0; s < steps && frontier.length; s++) {
     const next: number[] = [];
     for (const i of frontier) {
-      if (out[i] || (blocked && blocked[i]) || !isWall(i)) continue;
-      out[i] = 1;
-      const x = i % W, y = (i / W) | 0;
-      if (x > 0 && !out[i - 1]) next.push(i - 1);
-      if (x < W - 1 && !out[i + 1]) next.push(i + 1);
-      if (y > 0 && !out[i - W]) next.push(i - W);
-      if (y < H - 1 && !out[i + W]) next.push(i + W);
+      const x = i % W;
+      const ns = [x > 0 ? i - 1 : -1, x < W - 1 ? i + 1 : -1, i >= W ? i - W : -1, i + W < W * H ? i + W : -1];
+      for (const j of ns) if (j >= 0 && accept(i, j)) { out[j] = 1; next.push(j); }
     }
     frontier = next;
   }
 }
-
 export interface RefinedMask {
   mask: Uint8Array; // 0/1, for estimates and outlines
   alpha: Uint8Array; // 0..255 soft edge, for compositing
@@ -230,7 +246,7 @@ export function refineMask(photo: ImageData, mask: Uint8Array, blocked: Uint8Arr
   const N = W * H;
   const grown = mask.slice();
   if (blocked) for (let i = 0; i < N; i++) if (blocked[i]) grown[i] = 0;
-  growIntoShadowedWall(photo, grown, blocked, Math.round(Math.max(W, H) / 100));
+  growIntoShadowedWall(photo, grown, blocked, Math.round(Math.max(W, H) / 45));
   const p = new Float32Array(N);
   for (let i = 0; i < N; i++) p[i] = grown[i];
 
@@ -526,4 +542,74 @@ export function iou(a: Uint8Array, b: Uint8Array): number {
     if (a[i] || b[i]) { union++; if (a[i] && b[i]) inter++; }
   }
   return union ? inter / union : 0;
+}
+/**
+ * Where the AI finish may replace pixels: the wall, a thin band around it,
+ * and further out only patches that still look like the old painted wall
+ * (gaps between leaves, slivers behind cables). Those are the edges a visitor
+ * can't fix by hand; furniture farther away stays exactly as photographed.
+ */
+export function aiRegion(photo: ImageData, mask: Uint8Array, alpha: Uint8Array): Uint8Array {
+  const { width: W, height: H } = photo;
+  const N = W * H;
+  const long = Math.max(W, H);
+  const band = Math.max(3, Math.round(long * 0.008));
+  const reach = Math.max(8, Math.round(long * 0.035));
+
+  // Chamfer distance (in px) from the wall.
+  const d = new Float32Array(N);
+  for (let i = 0; i < N; i++) d[i] = mask[i] ? 0 : 1e9;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x; if (!d[i]) continue;
+    let v = d[i];
+    if (x > 0) v = Math.min(v, d[i - 1] + 1);
+    if (y > 0) v = Math.min(v, d[i - W] + 1, x > 0 ? d[i - W - 1] + 1.4 : 1e9, x < W - 1 ? d[i - W + 1] + 1.4 : 1e9);
+    d[i] = v;
+  }
+  for (let y = H - 1; y >= 0; y--) for (let x = W - 1; x >= 0; x--) {
+    const i = y * W + x; if (!d[i]) continue;
+    let v = d[i];
+    if (x < W - 1) v = Math.min(v, d[i + 1] + 1);
+    if (y < H - 1) v = Math.min(v, d[i + W] + 1, x < W - 1 ? d[i + W + 1] + 1.4 : 1e9, x > 0 ? d[i + W - 1] + 1.4 : 1e9);
+    d[i] = v;
+  }
+
+  const model = wallColor(photo, mask);
+  const f = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    if (mask[i]) f[i] = 1;
+    else if (d[i] <= band) f[i] = 1;
+    else if (d[i] <= reach && model?.test(i)) f[i] = 1;
+  }
+  boxBlur(f, W, H, 2, 2);
+  const out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) out[i] = Math.max(alpha[i], Math.round(f[i] * 255));
+  return out;
+}
+
+/** Drop islands smaller than `minShare` of the largest region (stray bits of a neighbouring wall). */
+export function keepMainRegions(mask: Uint8Array, W: number, H: number, minShare = 0.03): Uint8Array {
+  const N = W * H;
+  const label = new Int32Array(N).fill(-1);
+  const sizes: number[] = [];
+  const stack: number[] = [];
+  for (let s = 0; s < N; s++) {
+    if (!mask[s] || label[s] >= 0) continue;
+    const id = sizes.length;
+    let size = 0;
+    label[s] = id; stack.push(s);
+    while (stack.length) {
+      const i = stack.pop()!; size++;
+      const x = i % W;
+      if (x > 0 && mask[i - 1] && label[i - 1] < 0) { label[i - 1] = id; stack.push(i - 1); }
+      if (x < W - 1 && mask[i + 1] && label[i + 1] < 0) { label[i + 1] = id; stack.push(i + 1); }
+      if (i >= W && mask[i - W] && label[i - W] < 0) { label[i - W] = id; stack.push(i - W); }
+      if (i + W < N && mask[i + W] && label[i + W] < 0) { label[i + W] = id; stack.push(i + W); }
+    }
+    sizes.push(size);
+  }
+  const biggest = Math.max(0, ...sizes);
+  const out = new Uint8Array(N);
+  for (let i = 0; i < N; i++) if (label[i] >= 0 && sizes[label[i]] >= biggest * minShare) out[i] = 1;
+  return out;
 }

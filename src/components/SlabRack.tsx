@@ -22,7 +22,7 @@ export function SlabRack({ slabs, selected, onSelect }: { slabs: Slab[]; selecte
                   style={{
                     width: (s.sizeMm[0] / 1000) * PX_PER_M,
                     height: (s.sizeMm[1] / 1000) * PX_PER_M,
-                    backgroundImage: `url(${s.image})`,
+                    backgroundImage: `url(${s.thumb})`,
                   }}
                 />
                 <span className="slab-name">{s.name}</span>

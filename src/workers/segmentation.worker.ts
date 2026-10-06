@@ -15,8 +15,15 @@ const SAM_ID = 'onnx-community/sam2.1-hiera-tiny-ONNX';
 const WALL_ID = 'Xenova/segformer-b2-finetuned-ade-512-512';
 
 env.allowLocalModels = false;
+// ONNX Runtime's WASM runtime is self-hosted (see vite.config.ts), not loaded from a CDN.
+if (env.backends.onnx?.wasm) env.backends.onnx.wasm.wasmPaths = '/ort/';
 
 const post = (msg: SegResponse, transfer: Transferable[] = []) => self.postMessage(msg, transfer);
+
+// Surface anything that escapes a request handler (for example inside ONNX Runtime start-up).
+self.addEventListener('unhandledrejection', (e) => {
+  post({ type: 'error', message: e.reason instanceof Error ? e.reason.message : String(e.reason), request: 'warmup' });
+});
 
 let device: 'webgpu' | 'wasm' = 'wasm';
 let sam: { model: Sam2Model; processor: Sam2Processor } | null = null;

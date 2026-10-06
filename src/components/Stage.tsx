@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useRef, useState } from 'react';
-import type { Mode, Step, Tool } from '../App';
+import type { Mode, Step, Tool } from '../Visualizer';
 import type { Quad } from '../lib/homography';
 import type { TapPoint } from '../lib/segTypes';
 import type { useSegmentation } from '../lib/useSegmentation';
@@ -28,6 +28,8 @@ interface Props {
   aiUrl: string | null;
   proc: Process | null;
   onDismissProc: () => void;
+  /** After upload: the one-click option, or marking the wall by hand. */
+  offer: { slabName: string; onAuto: () => void; onManual: () => void } | null;
 }
 
 type Drag =
@@ -36,6 +38,17 @@ type Drag =
   | { kind: 'brush'; mode: Mode; points: [number, number][] };
 
 const opposite = (m: Mode): Mode => (m === 'add' ? 'remove' : 'add');
+
+// Illustrative rooms (AI-generated) for visitors without a photo of their own.
+const SAMPLE_ROOMS = [
+  { id: 'living', name: 'Living room', src: '/rooms/living.jpg', thumb: '/rooms/living-thumb.webp' },
+  { id: 'bedroom', name: 'Bedroom', src: '/rooms/bedroom.jpg', thumb: '/rooms/bedroom-thumb.webp' },
+  { id: 'dining', name: 'Dining', src: '/rooms/dining.jpg', thumb: '/rooms/dining-thumb.webp' },
+];
+async function openSample(src: string, open: (f: File) => void) {
+  const blob = await (await fetch(src)).blob();
+  open(new File([blob], src.split('/').pop()!, { type: blob.type }));
+}
 
 export function Stage(p: Props) {
   const areaRef = useRef<HTMLDivElement>(null);
@@ -116,8 +129,10 @@ export function Stage(p: Props) {
 
   const showSplit = p.split != null && p.step >= 3;
   let notice: string | null = null;
-  if (selecting && !p.hasMask && p.points.length === 0) {
-    notice = p.tool === 'tap' ? 'Tap the wall you want to clad, or let us find it for you.' : 'Paint over the wall you want to clad.';
+  if (selecting && !p.offer && !p.hasMask && p.points.length === 0) {
+    if (!p.seg.ready) notice = `Getting the wall finder ready (${Math.round((p.seg.modelProgress.sam ?? 0) * 100)}%). You can tap in a moment.`;
+    else if (p.seg.phase === 'encoding') notice = 'Studying your photo. You can tap in a moment.';
+    else notice = p.tool === 'tap' ? 'Tap the wall you want to clad.' : 'Paint over the wall you want to clad.';
   }
 
   const brushColor = (m: Mode) => (m === 'add' ? 'var(--brush-add)' : 'var(--brush-remove)');
@@ -198,6 +213,19 @@ export function Stage(p: Props) {
       </div>
 
       {p.proc && <ProcessCard proc={p.proc} onDismiss={p.onDismissProc} />}
+      {!p.proc && p.offer && p.photo && (
+        <div className="offer" role="dialog" aria-label="How do you want to start?">
+          <h2 className="offer-title">See {p.offer.slabName} on this wall</h2>
+          <p className="offer-body">
+            We'll find the wall, fit the slabs to it and lay the marble. It runs on your device, your photo stays with you,
+            and it takes about 10 seconds.
+          </p>
+          <button type="button" className="btn btn-find btn-wide" onClick={p.offer.onAuto}>
+            Put {p.offer.slabName} on my wall
+          </button>
+          <button type="button" className="btn btn-quiet offer-manual" onClick={p.offer.onManual}>I'll mark the wall myself</button>
+        </div>
+      )}
       {!p.proc && notice && <div className="notice" role="status">{notice}</div>}
       {!p.proc && p.seg.error && p.photo && <div className="notice notice-error" role="alert">{p.seg.error}</div>}
       {p.glError && <div className="notice notice-error" role="alert">{p.glError}</div>}
@@ -207,6 +235,17 @@ export function Stage(p: Props) {
           <h1 className="empty-title">Stand back, frame the whole wall, and take a photo.</h1>
           <p className="empty-body">Then pick a slab from the rack below. The marble is laid at true size, with the light from your room still falling on it.</p>
           <PhotoPicker onFile={p.onOpenPhoto} />
+          <div className="samples">
+            <p className="samples-label">No photo handy? Try a sample room.</p>
+            <div className="samples-row">
+              {SAMPLE_ROOMS.map((r) => (
+                <button key={r.id} type="button" className="sample" onClick={() => openSample(r.src, p.onOpenPhoto)}>
+                  <img src={r.thumb} alt="" width={132} height={99} />
+                  <span>{r.name}</span>
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -5,14 +5,16 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build",
+    "build": "tsc --noEmit && tsc --noEmit -p tsconfig.node.json && vite build && vite build --ssr src/entry-server.tsx --outDir dist-ssr && node scripts/prerender.mjs && vite build -c vite.server.config.ts",
     "preview": "vite preview",
-    "slabs": "python scripts/generate_placeholder_slabs.py"
+    "slabs": "node scripts/generate_slab_textures.mjs && python scripts/optimize_images.py",
+    "start": "node dist-server/prod.js"
   },
   "dependencies": {
     "@huggingface/transformers": "^4.3.0",
     "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "react-dom": "^19.3.0",
+    "react-router-dom": "^7.18.4"
   },
   "devDependencies": {
     "@types/node": "^26.6.4",
@@ -21,5 +23,8 @@
     "@vitejs/plugin-react": "^6.1.2",
     "typescript": "^7.0.2",
     "vite": "^8.3.3"
+  },
+  "engines": {
+    "node": ">=22.13"
   }
 }

@@ -84,6 +84,15 @@ export function useSegmentation() {
           break;
       }
     };
+    // A worker that fails to start or crashes must never leave the UI waiting.
+    const fail = (message: string) => {
+      setError(message);
+      setPhase('idle');
+      for (const p of pending.current.values()) p.reject(new Error(message));
+      pending.current.clear();
+    };
+    w.onerror = (e) => { e.preventDefault(); fail(`The wall finder stopped: ${e.message || 'it could not start in this browser'}.`); };
+    w.onmessageerror = () => fail('The wall finder sent an unreadable message.');
     const warm: SegRequest = { type: 'warmup' };
     w.postMessage(warm);
     return () => w.terminate();

@@ -45,6 +45,7 @@ export function enhancePrompt(r: Pick<EnhanceRequest, 'slabName' | 'finish'>) {
     'Make it look like a real photograph of the finished installation.',
     sheen,
     'Add natural contact shadows and ambient occlusion where furniture and fixtures meet the wall, and blend the edges of the stone into the room.',
+    'Most important: the cladding was cut out automatically, so its edges are rough. Small patches of the original painted wall still show between plant leaves, around cables and switches, along the edges of furniture and frames, and at the corners. Replace every remaining patch of old painted wall with the same marble, continuing its pattern, so the wall reads as fully clad and the stone passes cleanly behind every object. Do not cover the objects themselves.',
     'Strict rules: keep the marble\'s veining pattern, colours, slab joints and layout exactly as they are, without redrawing, moving or adding veins.',
     'Keep the veins as dark and as contrasty as they are now; the sheen must not wash them out or fade them.',
     'Keep every piece of furniture, object, light fixture, the camera angle and framing exactly the same. Do not add, remove or restyle anything. Do not change the image size or crop.',

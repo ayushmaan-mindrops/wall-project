@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import type { Layout, Mode, Step, Tool } from '../App';
+import type { Layout, Mode, Step, Tool } from '../Visualizer';
 import type { useSegmentation } from '../lib/useSegmentation';
 import type { Slab } from '../slabs';
 import type { Enhanced } from '../lib/enhance';
@@ -32,8 +32,13 @@ interface Props {
   split: number | null;
   setSplit: (v: number | null) => void;
   onDownload: () => void;
+  onSave: () => void;
+  onQuote: () => void;
+  saved: boolean;
   ai: {
     available: boolean;
+    remaining: number | null; // null when signed out
+    limit: number;
     result: Enhanced | null;
     busy: boolean;
     error: string | null;
@@ -85,9 +90,9 @@ export function Rail(p: Props) {
         <PhotoPicker onFile={p.onOpenPhoto} compact={!!p.photo} />
       </Section>
 
-      <Section n={2} title="Pick the wall" summary={p.hasMask ? 'Wall selected' : undefined}
+      <Section n={2} title={p.hasMask ? 'Adjust the wall' : 'Pick the wall'} summary={p.hasMask ? 'Found for you. Fix anything we missed' : undefined}
         open={p.step === 2} enabled={!!p.photo} onOpen={() => p.setStep(2)}>
-        <button type="button" className="btn btn-find btn-wide" onClick={p.onAuto} disabled={busy}>
+        <button type="button" className="btn btn-find btn-wide" onClick={() => p.onAuto()} disabled={busy}>
           <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 7V4a1 1 0 0 1 1-1h3M13 3h3a1 1 0 0 1 1 1v3M17 13v3a1 1 0 0 1-1 1h-3M7 17H4a1 1 0 0 1-1-1v-3" /><path d="M7 10.5l2 2 4-5" /></svg>
           {p.hasMask ? 'Find the wall again' : 'Find the wall for me'}
         </button>
@@ -127,7 +132,7 @@ export function Rail(p: Props) {
         </div>
         <button type="button" className="btn btn-primary btn-wide" disabled={!p.hasMask || p.working} onClick={() => p.setStep(3)}>Next: fit to the wall</button>
       </Section>
-      <Section n={3} title="Fit to the wall" summary={p.hasMask ? `${fmt(p.widthM)} × ${fmt(p.layout.heightM)} m` : undefined}
+      <Section n={3} title="Adjust the fit" summary={p.hasMask ? `${fmt(p.widthM)} × ${fmt(p.layout.heightM)} m` : undefined}
         open={p.step === 3} enabled={p.hasMask} onOpen={() => p.setStep(3)}>
         <p className="hint">Drag the four corners onto the wall's real corners so the slabs follow its angle. Then give its height, which sets the scale.</p>
         <div className="fields">
@@ -210,10 +215,15 @@ export function Rail(p: Props) {
               </>
             ) : (
               <>
-                <p className="ai-note">Adds polished-stone reflections, contact shadows and softer edges. Takes 10 to 30 seconds.</p>
-                <button type="button" className="btn btn-ai btn-wide" onClick={p.ai.run} disabled={p.ai.busy}>
-                  {p.ai.busy ? 'Adding the finish…' : 'Enhance with AI'}
+                <p className="ai-note">Adds polished-stone reflections and shadows, and cleans up the edges around furniture and plants. Takes about 25 seconds. Your design is sent to Google's Gemini to create it.</p>
+                <button type="button" className="btn btn-ai btn-wide" onClick={p.ai.run} disabled={p.ai.busy || p.ai.remaining === 0}>
+                  {p.ai.busy ? 'Adding the finish…' : p.ai.remaining === 0 ? 'No AI finishes left today' : 'Enhance with AI'}
                 </button>
+                <p className="ai-quota">
+                  {p.ai.remaining == null
+                    ? `Free with an account, ${p.ai.limit} a day.`
+                    : `${p.ai.remaining} of ${p.ai.limit} left today.`}
+                </p>
               </>
             )}
             {p.ai.error && <p className="ai-error" role="alert">{p.ai.error}</p>}
@@ -224,8 +234,10 @@ export function Rail(p: Props) {
           <button type="button" className="btn" onClick={() => p.setSplit(p.split == null ? 0.5 : null)}>
             {p.split == null ? 'Compare with today' : 'Hide comparison'}
           </button>
-          <button type="button" className="btn btn-primary" onClick={p.onDownload}>Download image</button>
+          <button type="button" className="btn" onClick={p.onDownload}>Download</button>
+          <button type="button" className="btn" onClick={p.onSave} disabled={p.saved}>{p.saved ? 'Saved' : 'Save design'}</button>
         </div>
+        <button type="button" className="btn btn-primary btn-wide btn-quote" onClick={p.onQuote}>Get a quote for this wall</button>
       </Section>
 
       {p.seg.device && (
