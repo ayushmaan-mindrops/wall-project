@@ -10,5 +10,5 @@
     "types": ["node"],
     "allowImportingTsExtensions": true
   },
-  "include": ["server", "vite.config.ts", "vite.server.config.ts"]
+  "include": ["server", "api", "vite.config.ts", "vite.server.config.ts"]
 }

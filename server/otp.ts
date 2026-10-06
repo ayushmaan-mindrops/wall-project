@@ -4,7 +4,7 @@
  * the browser so the flow can be demoed; it refuses to run in production.
  */
 import { randomInt } from 'node:crypto';
-import { HttpError } from './enhance.ts';
+import { HttpError } from './enhance';
 
 export interface OtpEnv {
   MSG91_AUTHKEY?: string;
@@ -12,6 +12,9 @@ export interface OtpEnv {
   NODE_ENV?: string;
   /** Allow on-screen test codes on a live server (demo only). */
   OTP_TEST_MODE?: string;
+  /** Test mode only: one fixed 6-digit code for every number. Needed on serverless hosts, where
+   *  "send" and "verify" can land on different instances that don't share memory. */
+  OTP_TEST_CODE?: string;
   /** Most codes sent per day across the whole site (default 300), against SMS-pumping fraud. */
   OTP_DAILY_CAP?: string;
 }
@@ -62,7 +65,8 @@ export async function sendOtp(phone: string, env: OtpEnv, ip = 'unknown'): Promi
     return {};
   }
   if (env.NODE_ENV === 'production' && env.OTP_TEST_MODE !== '1') throw new HttpError(503, 'Sign-in by SMS is not set up yet.');
-  const code = String(randomInt(100000, 1000000));
+  const fixed = /^\d{6}$/.test(env.OTP_TEST_CODE ?? '') ? env.OTP_TEST_CODE! : null;
+  const code = fixed ?? String(randomInt(100000, 1000000));
   devCodes.set(phone, { code, expires: Date.now() + 10 * 60e3, tries: 0 });
   console.log(`[otp] dev code for +${phone}: ${code}`);
   return { devCode: code };
@@ -82,6 +86,10 @@ export async function verifyOtp(phone: string, otp: unknown, env: OtpEnv): Promi
   if (live(env)) {
     const r = await msg91('otp/verify', { mobile: phone, otp: code }, env);
     if (!r.ok) throw new HttpError(401, 'That code is not right, or it has expired.');
+    return;
+  }
+  if (/^\d{6}$/.test(env.OTP_TEST_CODE ?? '')) {
+    if (code !== env.OTP_TEST_CODE) throw new HttpError(401, 'That code is not right.');
     return;
   }
   const entry = devCodes.get(phone);

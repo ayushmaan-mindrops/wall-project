@@ -5,7 +5,7 @@
  */
 import { appendFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { DATA_DIR, type User } from './db.ts';
+import { DATA_DIR, type User } from './db';
 
 export interface LeadNotice {
   id: string;

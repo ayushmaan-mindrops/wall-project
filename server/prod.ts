@@ -9,8 +9,8 @@ import { createServer } from 'node:http';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { extname, join, normalize, sep } from 'node:path';
 import { brotliCompressSync, gzipSync, constants as zc } from 'node:zlib';
-import { handleApi, type ApiEnv } from './router.ts';
-import { securityHeaders } from './security.ts';
+import { handleApi, type ApiEnv } from './router';
+import { securityHeaders } from './security';
 
 for (const file of ['.env.production', '.env.local', '.env']) {
   if (existsSync(file)) { process.loadEnvFile(file); break; }

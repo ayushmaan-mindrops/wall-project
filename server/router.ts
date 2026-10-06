@@ -16,10 +16,10 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { readFileSync, unlinkSync, writeFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { DATA_DIR, aiUsage, designs, leads, sessions, users, type User } from './db.ts';
-import { HttpError, enhance, enhanceAvailable, type EnhanceEnv } from './enhance.ts';
-import { normalizePhone, resendOtp, sendOtp, verifyOtp, type OtpEnv } from './otp.ts';
-import { notifyLead } from './notify.ts';
+import { DATA_DIR, aiUsage, designs, leads, sessions, users, type User } from './db';
+import { HttpError, enhance, enhanceAvailable, type EnhanceEnv } from './enhance';
+import { normalizePhone, resendOtp, sendOtp, verifyOtp, type OtpEnv } from './otp';
+import { notifyLead } from './notify';
 
 export type ApiEnv = EnhanceEnv & OtpEnv & { AI_DAILY_LIMIT?: string; LEAD_WEBHOOK_URL?: string; TRUST_PROXY?: string };
 

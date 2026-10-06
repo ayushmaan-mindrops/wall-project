@@ -46,7 +46,12 @@ docker run -p 8080:8080 -v mindrops-data:/app/data --env-file .env.production mi
 ```
 
 Host on anything that runs a Node container with a persistent disk (Railway, Render, Fly.io, a VPS), behind HTTPS.
-For serverless hosting, move `server/db.ts` to Postgres first.
+
+**Vercel (demo):** `vercel.json` and `api/[...path].ts` deploy the site plus the API as a function. Vercel's disk is
+read-only except `/tmp`, so the database lives there and is **temporary**: it's wiped whenever Vercel recycles the
+instance, which signs people out and drops saved designs and stored leads (set `LEAD_WEBHOOK_URL` to keep leads).
+Fine for a demo; move `server/db.ts` to Postgres (Neon) before real use. For test sign-in set `OTP_TEST_MODE=1` and
+`OTP_TEST_CODE=123456`. A fixed code is needed because serverless instances don't share memory.
 
 | Variable | Purpose |
 |---|---|
@@ -55,6 +60,8 @@ For serverless hosting, move `server/db.ts` to Postgres first.
 | `AI_DAILY_LIMIT` | AI finishes per account per day (default 3) |
 | `MSG91_AUTHKEY`, `MSG91_TEMPLATE_ID` | SMS sign-in codes (needs a DLT-registered template in India) |
 | `OTP_TEST_MODE=1` | Show codes on screen on a live server, for a demo without SMS. Never in real production |
+| `OTP_TEST_CODE` | With test mode: one fixed 6-digit code for every number (needed on Vercel) |
+| `DATA_DIR` | Where the SQLite database and design images live (default `./data`, `/tmp/mindrops` on Vercel) |
 | `OTP_DAILY_CAP` | Site-wide SMS codes per day (default 300), against SMS-pumping fraud |
 | `TRUST_PROXY=1` | Behind a proxy or load balancer, take the client IP from `X-Forwarded-For` |
 | `LEAD_WEBHOOK_URL` | Also POST each quote request here (Slack, Zapier, Make, Google Apps Script) |

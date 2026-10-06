@@ -1,14 +1,15 @@
 /**
- * Storage for the pitch build: Node's built-in SQLite, one file in ./data.
- * Swap for Postgres (Neon, Supabase) before deploying to serverless hosts,
- * whose filesystems don't persist.
+ * Storage for the pitch build: Node's built-in SQLite, one file in ./data
+ * (or DATA_DIR). On Vercel only /tmp is writable, and it's wiped whenever an
+ * instance is recycled, so data there is temporary: move to Postgres (Neon)
+ * for anything that must last.
  */
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 
-export const DATA_DIR = join(process.cwd(), 'data');
+export const DATA_DIR = process.env.DATA_DIR ?? (process.env.VERCEL ? '/tmp/mindrops' : join(process.cwd(), 'data'));
 mkdirSync(join(DATA_DIR, 'designs'), { recursive: true });
 
 const db = new DatabaseSync(join(DATA_DIR, 'app.db'));
